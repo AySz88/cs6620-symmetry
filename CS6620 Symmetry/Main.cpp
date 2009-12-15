@@ -11,6 +11,8 @@
 const int GRID_SIZE = 64;
 const int SAMPLES = 1000;
 const float THRESHOLD = 1000.0;
+const int TOTAL_ISP_ITER = 20;
+const int POINTS_PER_ITER = 1000;
 
 typedef TVec2<float> Vec2f;
 typedef TVec3<float> Vec3f;
@@ -196,6 +198,39 @@ void main()
 			//std::cout << *iter;
 		}
 	}
+	
+	//ISP
+	while(TOTAL_ISP_ITER)
+	{
+		for(std::vector<ReflectPlane>::iterator iter = symmetries.begin(); iter != symmetries.end(); iter++)
+		{
+			ReflectPlane candidateRefPlane = *iter;
+			for(int i = 0; i < POINTS_PER_ITER; i++)
+			{
+				std::vector<Cpatch> patchArray;
+				patchArray.push_back(patches[getRandom(0, patches.size())]);
+			}
+			
+			for(int i = 0; i < POINTS_PER_ITER; i++)
+			{
+				std::vector<Cpatch> refPatchArray;
+				
+				//get the reflected point corresponding to each patch
+				Vec3f refPoint;
+
+				//find point in patches closest to refPoint;
+
+				//add that point to refPatchArray
+
+
+			}
+			
+			//find t p r for candidate plane that minimizes sum of distances between 
+			//corresponding points in patchArray and refPatchArray
+
+		}
+
+	}//ISP
 
 	
 
