@@ -16,6 +16,7 @@ const int TOTAL_ISP_ITER = 20;
 const int POINTS_PER_ITER = 1000;
 const float SIGMA = 1;
 const float SIGMASQRD = SIGMA*SIGMA;
+const float PI = 3.1415926535;
 
 typedef TVec2<float> Vec2f;
 typedef TVec3<float> Vec3f;
@@ -146,27 +147,41 @@ void getPlaneReflecting(Cpatch& p1, Cpatch& p2, float& theta, float& phi, float&
 	diff.unitize();
 	theta = acos(diff[2]);
 	bool needNegZ = false;
-	if (theta > 0.5*3.14159)
+	if (theta > 0.5*PI)
 	{
 		diff *= -1;
 		theta = acos(diff[2]);
 		needNegZ = true;
 	}
 	sinTheta = sin(theta);
-	phi = acos(std::max<float>(std::min<float>(diff[0]/sinTheta, 1.0), 0.0)); // guard against rounding errors
+
+	// FIXME something is wrong here?
+	phi = acos(std::max<float>(std::min<float>(diff[0]/sinTheta, 1.0), -1.0));
+	if (diff[1] < 0) phi = 2*PI - phi;
+	//phi = acos(std::max<float>(std::min<float>(diff[0]/sinTheta, 1.0), 0.0)); // guard against rounding errors
 	Vec3f normal(sinTheta*cos(phi), sinTheta*sin(phi), diff[2]);
+	
+	// DEBUG
+	/*
+	float normalError = (normal - Vec3f(diff[0], diff[1], diff[2])).norm();
+	if (normalError > 1e-3)
+	{
+		std::cout << "Error in normal was" << normalError << std::endl;
+		std::cout << "  Normal:" << normal[0] << " " << normal[1] << " " << normal[2] << " " << normal[3] << std::endl;
+		std::cout << "  Diff:" << diff[0] << " " << diff[1] << " " << diff[2] << " " << diff[3] << std::endl;
+	}*/
 	
 	Vec4f intersectPt = float(0.5) * (p2.m_coord + p1.m_coord);
 	Vec3f iPt3(intersectPt[0], intersectPt[1], intersectPt[2]);
 	r = iPt3 * normal * (needNegZ ? -1.0 : 1.0);
 
-	if (theta > 0.5*3.14159 || theta < 0)
+	if (theta > 0.5*PI || theta < 0 || phi < 0 || phi > 2*PI)
 	{
 		/*
 		r *= -1;
-		theta = 3.14159 - theta;
-		phi = 3.14159 + phi;
-		if (phi > 2.0*3.14159) phi -= 2.0*3.14159;
+		theta = PI - theta;
+		phi = PI + phi;
+		if (phi > 2.0*PI) phi -= 2.0*PI;
 		*/
 		std::cout << "Bad reflection calculated! " << p1.m_coord - p2.m_coord << " --> "
 			<< theta << " " << phi << " " << r << std::endl;
@@ -175,14 +190,39 @@ void getPlaneReflecting(Cpatch& p1, Cpatch& p2, float& theta, float& phi, float&
 
 void writePlyFiles(patchVect patches, std::vector<ReflectPlane> symmetries)
 {
+	int i = 0;
+	
+	
 	for(std::vector<ReflectPlane>::iterator iter = symmetries.begin(); iter != symmetries.end(); iter++)
 	{	
+		std::stringstream filename;
+		filename<<i<<".ply";
+		i++;
 		std::ofstream data;
-		data.
+		data.open(filename.str().c_str());
+		ReflectPlane curPlane = *iter;
+		data<<"ply\nformat ascii 1.0\nelement vertex "<<patches.size()<<"\nproperty float x\nproperty float y\n"
+				"property float z\nproperty uchar diffuse_red\nproperty uchar diffuse_green\n"
+				"property uchar diffuse_blue\nend_header"<<std::endl;
 		for(patchVect::iterator iter1 = patches.begin(); iter1 != patches.end(); iter1++)
 		{
+			Cpatch p = *iter1;
+			float  sinTheta = sin(curPlane.theta);
+			Vec4f normal(sinTheta*cos(curPlane.phi), sinTheta*sin(curPlane.phi), cos(curPlane.theta), 0.0);
+			float dotp = p.m_coord * normal;
+			std::stringstream line;
+			if(dotp < 0.0) // FIXME if(dotp < curPlane.r) ?
+			{
+				data<<p.m_coord[0]<<" "<<p.m_coord[1]<<" "<<p.m_coord[2]<<" "<<0<<" "<<255<<" "<<0<<std::endl;
+				
+			}
+			else
+			{
+				data<<p.m_coord[0]<<" "<<p.m_coord[1]<<" "<<p.m_coord[2]<<" "<<255<<" "<<0<<" "<<0<<std::endl;
+			}
 			
 		}
+		data.close();
 	}
 }
 
@@ -213,7 +253,7 @@ void main()
 	avg[2] = 0.0;
 	avg[3] = 1.0;
 	*/
-	Vec3f minTPR(0, 0, -maxR), maxTPR(float(3.14159*0.5), float(2.0*3.14159), maxR);
+	Vec3f minTPR(0, 0, -maxR), maxTPR(float(PI*0.5), float(2.0*PI), maxR);
 	ReflectPlaneGrid grid(GRID_SIZE, minTPR, maxTPR);
 
 	srand(1234); // DEBUG
@@ -234,11 +274,11 @@ void main()
 
 		grid.getPlane(theta, phi, r).score += float(0.5)/(sinTheta*dSqrd);
 
-		
+		/*
 		std::cout << "score: " << grid.getPlane(theta, phi, r).score << std::endl;
 		std::cout << "  added 0.5/(" << sinTheta << "*" << dSqrd << " = " << float(0.5)/(sinTheta*dSqrd)
 			<< " at " << theta << " " << phi << " " << r << std::endl;
-		
+		*/
 	}
 
 	ReflectPlane* maxSoFar = &grid.getPlane(0,0,0);
@@ -359,7 +399,7 @@ void readPatches(int files, patchVect& patches, Vec4f& avg, float& maxR)
 void readPsetFile(patchVect& patches, Vec4f& avg, float& maxR)
 {
 		std::stringstream filename;
-		filename << "nskullb.pset";
+		filename << "mcgraw.pset";
 
 		std::cout << "Starting to read image " << filename.str() << std::endl;
 
