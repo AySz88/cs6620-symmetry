@@ -11,7 +11,7 @@
 
 const int GRID_SIZE = 64;
 const int SAMPLES = 1000;
-const float THRESHOLD = 10.0;
+const float THRESHOLD = 0.0001;
 const int TOTAL_ISP_ITER = 20;
 const int POINTS_PER_ITER = 1000;
 const float SIGMA = 1;
@@ -23,6 +23,8 @@ typedef TVec4<float> Vec4f;
 
 typedef Patch::Cpatch Cpatch;
 typedef std::vector<Cpatch> patchVect;
+
+void readPsetFile(patchVect& patches, Vec4f& avg, float& maxR);
 
 struct ReflectPlane
 {
@@ -177,7 +179,8 @@ void main()
 	Vec4f avg;
 	float maxR;
 	//readPatches(9, patches, avg, maxR); // avg has the average coord of patches BEFORE; it is subtracted out
-
+	readPsetFile(patches, avg, maxR);
+	/*
 	for(int i = 0; i < 10000; i++)
 	{
 		Cpatch p;
@@ -195,7 +198,7 @@ void main()
 	avg[1] = 0.0;
 	avg[2] = 0.0;
 	avg[3] = 1.0;
-
+	*/
 	Vec3f minTPR(0, 0, -maxR), maxTPR(float(3.14159*0.5), float(2.0*3.14159), maxR);
 	ReflectPlaneGrid grid(GRID_SIZE, minTPR, maxTPR);
 
@@ -217,11 +220,11 @@ void main()
 
 		grid.getPlane(theta, phi, r).score += float(0.5)/(sinTheta*dSqrd);
 
-		/*
+		
 		std::cout << "score: " << grid.getPlane(theta, phi, r).score << std::endl;
 		std::cout << "  added 0.5/(" << sinTheta << "*" << dSqrd << " = " << float(0.5)/(sinTheta*dSqrd)
 			<< " at " << theta << " " << phi << " " << r << std::endl;
-		*/
+		
 	}
 
 	ReflectPlane* maxSoFar = &grid.getPlane(0,0,0);
@@ -260,7 +263,7 @@ void main()
 			std::cout << "Added plane " << iter->theta << " " << iter->phi << " " << iter->r << std::endl;
 		}
 	}
-	
+	/*
 	//ISP
 	while(TOTAL_ISP_ITER)
 	{
@@ -348,7 +351,7 @@ void main()
 		}
 
 	}//ISP
-
+*/
 	std::cout << "Done! type some char to exit..." << std::endl;
 	char c;
 	std::cin >> c;
@@ -423,6 +426,71 @@ void readPatches(int files, patchVect& patches, Vec4f& avg, float& maxR)
 		iter->m_coord -= avg;
 		maxR = std::max(maxR, iter->m_coord.norm2());
 	}
+}
+
+void readPsetFile(patchVect& patches, Vec4f& avg, float& maxR)
+{
+		std::stringstream filename;
+		filename << "nskullb.pset";
+
+		std::cout << "Starting to read image " << filename.str() << std::endl;
+
+		std::ifstream data;
+		data.open(filename.str().c_str());
+		int points;
+		std::string line;
+		
+			
+		while(1)
+		{
+			getline(data,line);
+			if (line[0] != 'E')
+			{
+				int i =0, j = 0;
+				Cpatch p;
+				char * coordStrX = new char[20];
+				char * coordStrY = new char[20];
+				char * coordStrZ = new char[20];
+				while(line[i] != ' ')
+				{
+					coordStrX[j++] = line[i++];
+				}
+				coordStrX[j] = '\0';
+				j=0;
+				i++;
+				while(line[i] != ' ')
+				{
+					coordStrY[j++] = line[i++];
+				}
+				coordStrY[j] = '\0';
+				j =0;
+				i++;
+				while(line[i] != ' ')
+				{
+					coordStrZ[j++] = line[i++];
+				}
+				coordStrZ[j] = '\0';
+				p.m_coord[0] = atof(coordStrX);
+				p.m_coord[1] = atof(coordStrY);
+				p.m_coord[2] = atof(coordStrZ);
+				p.m_coord[3] = 1.0;
+				patches.push_back(p);
+				avg += p.m_coord;
+
+			}
+			else
+				break;
+		}
+		std::cout<< "Done reading data from file"<<std::endl;
+
+	avg /= avg[3];
+	maxR = 0.0f;
+	for(patchVect::iterator iter = patches.begin(); iter != patches.end(); iter++)
+	{
+		iter->m_coord -= avg;
+		maxR = std::max(maxR, iter->m_coord.norm2());
+	}
+	maxR = sqrt(maxR);
 }
 
 volatile int getRandom(int min, int max)
