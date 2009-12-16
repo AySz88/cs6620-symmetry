@@ -173,6 +173,20 @@ void getPlaneReflecting(Cpatch& p1, Cpatch& p2, float& theta, float& phi, float&
 	}
 }
 
+void writePlyFiles(patchVect patches, std::vector<ReflectPlane> symmetries)
+{
+	for(std::vector<ReflectPlane>::iterator iter = symmetries.begin(); iter != symmetries.end(); iter++)
+	{	
+		std::ofstream data;
+		data.
+		for(patchVect::iterator iter1 = patches.begin(); iter1 != patches.end(); iter1++)
+		{
+			
+		}
+	}
+}
+
+
 void main()
 {
 	patchVect patches;
@@ -263,95 +277,9 @@ void main()
 			std::cout << "Added plane " << iter->theta << " " << iter->phi << " " << iter->r << std::endl;
 		}
 	}
-	/*
-	//ISP
-	while(TOTAL_ISP_ITER)
-	{
-		std::vector<Cpatch> patchArray;
-		for(int i = 0; i < POINTS_PER_ITER; i++)
-		{
-			patchArray.push_back(patches[getRandom(0, patches.size())]);
-		}
+	
+	writePlyFiles(patches, symmetries);
 
-		for(std::vector<ReflectPlane>::iterator iter = symmetries.begin(); iter != symmetries.end(); iter++)
-		{
-			ReflectPlane candidateRefPlane = *iter;
-			
-			std::vector<Cpatch> refPatchArray;
-			for(int i = 0; i < POINTS_PER_ITER; i++)
-			{
-				Vec4f curPoint = patchArray[i].m_coord;
-
-				//get the reflected point corresponding to each patch
-				float sinTheta = sin(iter->theta);
-				float phi = iter->phi;
-				Vec4f normal(sinTheta*cos(iter->phi), sinTheta*sin(iter->phi), cos(iter->theta), 0.0);
-
-				float dist = sqrt(normal * curPoint);
-				Vec4f projection = dist * normal;
-				Vec4f perp = curPoint - projection;
-				float reflDist = 2*iter->r - dist;
-
-				Vec4f refPoint = reflDist * normal + perp;
-
-				//find point in patches closest to refPoint
-				// FIXME use octree?
-				Cpatch& minSoFar = patches[0];
-				float minDistSqrdSoFar = (patches[0].m_coord - refPoint).norm2();
-				for (std::vector<Cpatch>::iterator iter2 = patches.begin(); iter2 != patches.end(); iter2++)
-				{
-					float thisDist = (iter2->m_coord - refPoint).norm2();
-					if (thisDist < minDistSqrdSoFar)
-					{
-						minDistSqrdSoFar = thisDist;
-						minSoFar = *iter2;
-					}
-				}
-
-				//add that point to refPatchArray
-				refPatchArray.push_back(minSoFar);
-			}
-			
-			//find t p r for candidate plane that minimizes sum of distances between 
-			//corresponding points in patchArray and refPatchArray
-			
-			float tTot = 0, pTot = 0, rTot = 0, weight = 0;
-			for (int i = 0; i < POINTS_PER_ITER; i++)
-			{
-				if ((patchArray[i].m_coord - refPatchArray[i].m_coord).norm2() > 1e-5)
-				{
-					float t, p, r, sinT, dSqrd;
-					getPlaneReflecting(patchArray[i], refPatchArray[i], t, p, r, sinT, dSqrd);
-					tTot += t;
-					pTot += p;
-					rTot += r;
-					weight += exp(-dSqrd/SIGMASQRD);
-
-					if (p!=p || r!=r)
-					{
-						std::cout << "Weight " << exp(-dSqrd/SIGMASQRD)
-							<< "  -  Plane " << iter->theta << " " << iter->phi << " " << iter->r
-							<< " tugged toward " << t << " " << p << " " << r << std::endl;
-						
-						getPlaneReflecting(patchArray[i], refPatchArray[i], t, p, r, sinT, dSqrd);
-					}
-				}
-			}
-			tTot /= weight;
-			pTot /= weight;
-			rTot /= weight;
-
-			std::cout << "Plane " << iter->theta << " " << iter->phi << " " << iter->r
-				<< " updated to " << tTot << " " << pTot << " " << rTot << std::endl;
-
-			// update to mean values
-			iter->theta = tTot;
-			iter->phi = pTot;
-			iter->r = rTot;
-		}
-
-	}//ISP
-*/
 	std::cout << "Done! type some char to exit..." << std::endl;
 	char c;
 	std::cin >> c;
