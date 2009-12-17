@@ -10,12 +10,12 @@
 #include "pmvs_base/numeric/vec4.h"
 
 const int GRID_SIZE = 64;
-const int SAMPLES = 1000;
-const float THRESHOLD = 0.0001;
-const int TOTAL_ISP_ITER = 20;
-const int POINTS_PER_ITER = 1000;
-const float SIGMA = 1;
-const float SIGMASQRD = SIGMA*SIGMA;
+const int SAMPLES = 50000;
+const float THRESHOLD = 0.0001; // set to zero to just do top and within 10% score
+//const int TOTAL_ISP_ITER = 20;
+//const int POINTS_PER_ITER = 1000;
+//const float SIGMA = 1;
+//const float SIGMASQRD = SIGMA*SIGMA;
 const float PI = 3.1415926535;
 
 typedef TVec2<float> Vec2f;
@@ -155,10 +155,8 @@ void getPlaneReflecting(Cpatch& p1, Cpatch& p2, float& theta, float& phi, float&
 	}
 	sinTheta = sin(theta);
 
-	// FIXME something is wrong here?
 	phi = acos(std::max<float>(std::min<float>(diff[0]/sinTheta, 1.0), -1.0));
 	if (diff[1] < 0) phi = 2*PI - phi;
-	//phi = acos(std::max<float>(std::min<float>(diff[0]/sinTheta, 1.0), 0.0)); // guard against rounding errors
 	Vec3f normal(sinTheta*cos(phi), sinTheta*sin(phi), diff[2]);
 	
 	// DEBUG
@@ -211,7 +209,7 @@ void writePlyFiles(patchVect patches, std::vector<ReflectPlane> symmetries)
 			Vec4f normal(sinTheta*cos(curPlane.phi), sinTheta*sin(curPlane.phi), cos(curPlane.theta), 0.0);
 			float dotp = p.m_coord * normal;
 			std::stringstream line;
-			if(dotp < 0.0) // FIXME if(dotp < curPlane.r) ?
+			/*if(dotp < 0.0);// FIXME*/ if(dotp < curPlane.r)
 			{
 				data<<p.m_coord[0]<<" "<<p.m_coord[1]<<" "<<p.m_coord[2]<<" "<<0<<" "<<255<<" "<<0<<std::endl;
 				
@@ -266,19 +264,22 @@ void main()
 		float theta, phi, r, sinTheta, dSqrd;
 		getPlaneReflecting(p1, p2, theta, phi, r, sinTheta, dSqrd);
 
-		if (sinTheta*dSqrd < 0 || sinTheta*dSqrd != sinTheta*dSqrd)
+		if (dSqrd > 0) // not same point
 		{
-			std::cout << "Negative score: 0.5/(" << sinTheta << "*" << dSqrd << " = " << float(0.5)/(sinTheta*dSqrd)
+			if (sinTheta*dSqrd < 0 || sinTheta*dSqrd != sinTheta*dSqrd)
+			{
+				std::cout << "Negative score: 0.5/(" << sinTheta << "*" << dSqrd << " = " << float(0.5)/(sinTheta*dSqrd)
+					<< " at " << theta << " " << phi << " " << r << std::endl;
+			}
+
+			grid.getPlane(theta, phi, r).score += float(0.5)/(sinTheta*dSqrd);
+
+			/*
+			std::cout << "score: " << grid.getPlane(theta, phi, r).score << std::endl;
+			std::cout << "  added 0.5/(" << sinTheta << "*" << dSqrd << " = " << float(0.5)/(sinTheta*dSqrd)
 				<< " at " << theta << " " << phi << " " << r << std::endl;
+			*/
 		}
-
-		grid.getPlane(theta, phi, r).score += float(0.5)/(sinTheta*dSqrd);
-
-		/*
-		std::cout << "score: " << grid.getPlane(theta, phi, r).score << std::endl;
-		std::cout << "  added 0.5/(" << sinTheta << "*" << dSqrd << " = " << float(0.5)/(sinTheta*dSqrd)
-			<< " at " << theta << " " << phi << " " << r << std::endl;
-		*/
 	}
 
 	ReflectPlane* maxSoFar = &grid.getPlane(0,0,0);
@@ -314,7 +315,7 @@ void main()
 		{
 			symmetries.push_back(*iter);
 			//std::cout << *iter;
-			std::cout << "Added plane " << iter->theta << " " << iter->phi << " " << iter->r << std::endl;
+			std::cout << "Added plane scoring " << iter->score << " | " << iter->theta << " " << iter->phi << " " << iter->r << std::endl;
 		}
 	}
 	
@@ -405,10 +406,8 @@ void readPsetFile(patchVect& patches, Vec4f& avg, float& maxR)
 
 		std::ifstream data;
 		data.open(filename.str().c_str());
-		int points;
 		std::string line;
 		
-			
 		while(1)
 		{
 			getline(data,line);
